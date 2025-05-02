@@ -45,7 +45,7 @@ def backtest(update: Update, context: CallbackContext) -> None:
         context.bot.send_message(chat_id=update.effective_chat.id, text=f"❌ 回測錯誤：{e}")
 
 if __name__ == "__main__":
-    TOKEN = os.getenv("BOT_TOKEN")
+    TOKEN = os.getenv("TELEGRAM_TOKEN")
     updater = Updater(TOKEN)
     dispatcher = updater.dispatcher
     dispatcher.add_handler(CommandHandler("backtest", backtest))

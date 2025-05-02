@@ -7,7 +7,7 @@ from telegram import Update
 from telegram.ext import Updater, CommandHandler, CallbackContext
 from utils.binance_api import fetch_all_symbols_data
 from utils.feature_engineering import prepare_features
-from utils.telegram import send_telegram_alert
+from utils.telegram_bot_helper import send_telegram_alert
 from sklearn.metrics import classification_report
 
 MODEL_PATH = "model/ai_soros_model.pkl"

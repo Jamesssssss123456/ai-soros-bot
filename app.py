@@ -3,13 +3,13 @@ import os
 import joblib
 import pandas as pd
 from apscheduler.schedulers.background import BackgroundScheduler
-import pytz
-from telegram import Update
+from telegram import Update, Bot
 from telegram.ext import Updater, CommandHandler, CallbackContext
 from utils.binance_api import fetch_all_symbols_data
 from utils.feature_engineering import prepare_features, calculate_tp_sl_risk
 from utils.telegram_bot_helper import send_telegram_alert
-from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
+from sklearn.metrics import classification_report
+import pytz
 
 MODEL_PATH = "model/ai_soros_model.pkl"
 DATA_PATH = "data/data_ALPACAUSDT.csv"
@@ -41,40 +41,31 @@ def backtest(update: Update, context: CallbackContext) -> None:
         y = (df["label"] != 0).astype(int)
         y_pred = model.predict(X)
         y_pred_signal = [1 if p != 0 else 0 for p in y_pred]
-
-        acc = accuracy_score(y, y_pred_signal)
-        prec = precision_score(y, y_pred_signal, zero_division=0)
-        rec = recall_score(y, y_pred_signal, zero_division=0)
-        f1 = f1_score(y, y_pred_signal, zero_division=0)
-        total = len(y)
-        winrate = round(prec * 100, 2)
-
-        summary = (
-            f"📊 回測結果：\n"
-            f"樣本數：{total} 筆\n"
-            f"🎯 Winrate (精確率)：{winrate}%\n"
-            f"✅ Accuracy：{acc:.3f}\n"
-            f"📈 Recall：{rec:.3f}\n"
-            f"📊 F1 Score：{f1:.3f}"
-        )
-
-        context.bot.send_message(chat_id=update.effective_chat.id, text=summary)
-
+        report = classification_report(y, y_pred_signal, digits=3)
+        context.bot.send_message(chat_id=update.effective_chat.id, text=f"📊 回測結果：\n{report}")
     except Exception as e:
         context.bot.send_message(chat_id=update.effective_chat.id, text=f"❌ 回測錯誤：{e}")
 
 if __name__ == "__main__":
     TOKEN = os.getenv("TELEGRAM_TOKEN")
-    if not TOKEN:
-        raise ValueError("❌ 未設定 TELEGRAM_TOKEN 環境變數")
-    updater = Updater(TOKEN)
+    PORT = int(os.environ.get("PORT", 8443))
+    WEBHOOK_URL = f"https://{os.getenv('RENDER_EXTERNAL_HOSTNAME')}/{TOKEN}"
+
+    updater = Updater(TOKEN, use_context=True)
     dispatcher = updater.dispatcher
     dispatcher.add_handler(CommandHandler("backtest", backtest))
 
-    scheduler = BackgroundScheduler(timezone=pytz.timezone("Asia/Kuala_Lumpur"))
+    scheduler = BackgroundScheduler(timezone=pytz.utc)
     scheduler.add_job(monitor_job, 'interval', minutes=1)
     scheduler.start()
 
-    updater.start_polling()
-    print("✅ Bot 已啟動，可使用 /backtest 並每分鐘推理")
+    updater.start_webhook(
+        listen="0.0.0.0",
+        port=PORT,
+        url_path=TOKEN,
+        webhook_url=WEBHOOK_URL
+    )
+
+    print("✅ Bot 已啟動，WebHook 模式監聽中...")
     updater.idle()
+

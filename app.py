@@ -3,6 +3,7 @@ import time
 import joblib
 import pandas as pd
 from apscheduler.schedulers.background import BackgroundScheduler
+import pytz
 from telegram import Update
 from telegram.ext import Updater, CommandHandler, CallbackContext
 from utils.binance_api import fetch_all_symbols_data
@@ -50,10 +51,12 @@ if __name__ == "__main__":
     dispatcher = updater.dispatcher
     dispatcher.add_handler(CommandHandler("backtest", backtest))
 
-    scheduler = BackgroundScheduler()
+    # ✅ 修正：使用 pytz 時區防止 Render 出錯
+    scheduler = BackgroundScheduler(timezone=pytz.utc)
     scheduler.add_job(monitor_job, 'interval', minutes=1)
     scheduler.start()
 
     updater.start_polling()
     print("✅ Bot 已啟動，可使用 /backtest 並每分鐘推理")
     updater.idle()
+

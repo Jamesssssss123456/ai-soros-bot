@@ -26,7 +26,7 @@ def monitor_job():
                 tp, sl, rr = calculate_tp_sl_risk(features)
                 send_telegram_alert(symbol, prob, X, tp, sl, rr)
     except Exception as e:
-        print(f"錯誤: {e}")
+        print(f"❌ 錯誤: {e}")
 
 def backtest(update: Update, context: CallbackContext) -> None:
     try:
@@ -48,15 +48,19 @@ def backtest(update: Update, context: CallbackContext) -> None:
 
 if __name__ == "__main__":
     TOKEN = os.getenv("TELEGRAM_TOKEN")
-    updater = Updater(TOKEN, use_context=True)
+    
+    # ✅ 使用 Polling 模式，避免 webhook 問題
+    updater = Updater(token=TOKEN, use_context=True)
     dispatcher = updater.dispatcher
     dispatcher.add_handler(CommandHandler("backtest", backtest))
 
+    # 定期執行監控任務
     scheduler = BackgroundScheduler(timezone=pytz.utc)
     scheduler.add_job(monitor_job, 'interval', minutes=1)
     scheduler.start()
 
+    print("✅ Bot 已啟動，使用 Polling 模式...")
     updater.start_polling()
-    print("✅ Bot 已啟動，使用 polling 模式")
     updater.idle()
+
 

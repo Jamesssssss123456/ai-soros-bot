@@ -3,7 +3,7 @@ import os
 import joblib
 import pandas as pd
 from apscheduler.schedulers.background import BackgroundScheduler
-from telegram import Update, Bot
+from telegram import Update
 from telegram.ext import Updater, CommandHandler, CallbackContext
 from utils.binance_api import fetch_all_symbols_data
 from utils.feature_engineering import prepare_features, calculate_tp_sl_risk
@@ -48,9 +48,6 @@ def backtest(update: Update, context: CallbackContext) -> None:
 
 if __name__ == "__main__":
     TOKEN = os.getenv("TELEGRAM_TOKEN")
-    PORT = int(os.environ.get("PORT", 8443))
-    WEBHOOK_URL = f"https://{os.getenv('RENDER_EXTERNAL_HOSTNAME')}/{TOKEN}"
-
     updater = Updater(TOKEN, use_context=True)
     dispatcher = updater.dispatcher
     dispatcher.add_handler(CommandHandler("backtest", backtest))
@@ -59,13 +56,7 @@ if __name__ == "__main__":
     scheduler.add_job(monitor_job, 'interval', minutes=1)
     scheduler.start()
 
-    updater.start_webhook(
-        listen="0.0.0.0",
-        port=PORT,
-        url_path=TOKEN,
-        webhook_url=WEBHOOK_URL
-    )
-
-    print("✅ Bot 已啟動，WebHook 模式監聽中...")
+    updater.start_polling()
+    print("✅ Bot 已啟動，使用 polling 模式")
     updater.idle()
 

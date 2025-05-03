@@ -1,3 +1,4 @@
+
 import os
 import time
 import joblib
@@ -51,7 +52,6 @@ if __name__ == "__main__":
     dispatcher = updater.dispatcher
     dispatcher.add_handler(CommandHandler("backtest", backtest))
 
-    # ✅ 修正：使用 pytz 時區防止 Render 出錯
     scheduler = BackgroundScheduler(timezone=pytz.utc)
     scheduler.add_job(monitor_job, 'interval', minutes=1)
     scheduler.start()
@@ -59,4 +59,3 @@ if __name__ == "__main__":
     updater.start_polling()
     print("✅ Bot 已啟動，可使用 /backtest 並每分鐘推理")
     updater.idle()
-

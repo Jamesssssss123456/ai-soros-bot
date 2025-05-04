@@ -57,6 +57,8 @@ if not CHAT_ID:
     updater.start_polling()
     print("✅ Bot 已啟動，Polling 模式監聽中...")
     updater.idle()
+    send_telegram_alert("TESTUSDT", 0.88, [0.5, -0.8, 1.2, 0.9], 0.05, 0.03, 1.7)
+
 
 
 

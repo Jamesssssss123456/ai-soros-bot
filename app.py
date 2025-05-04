@@ -3,7 +3,7 @@ import os
 import joblib
 import pandas as pd
 from apscheduler.schedulers.background import BackgroundScheduler
-from telegram import Update
+from telegram import Update, Bot
 from telegram.ext import Updater, CommandHandler, CallbackContext
 from utils.binance_api import fetch_all_symbols_data
 from utils.feature_engineering import prepare_features, calculate_tp_sl_risk
@@ -21,10 +21,15 @@ def monitor_job():
         data = fetch_all_symbols_data()
         for symbol, features in data.items():
             X = prepare_features(features)
-            prob = model.predict_proba([X])[0][1]
-            if prob > 0.7:
-                tp, sl, rr = calculate_tp_sl_risk(features)
-                send_telegram_alert(symbol, prob, X, tp, sl, rr)
+            X_df = pd.DataFrame([X])  # 避免 sklearn warning，保留欄位名稱
+            proba = model.predict_proba(X_df)[0]
+            if len(proba) > 1:
+                prob = proba[1]
+                if prob > 0.7:
+                    tp, sl, rr = calculate_tp_sl_risk(features)
+                    send_telegram_alert(symbol, prob, X, tp, sl, rr)
+            else:
+                print(f"{symbol} 模型僅有一個類別輸出，跳過")
     except Exception as e:
         print(f"❌ 錯誤: {e}")
 
@@ -48,19 +53,25 @@ def backtest(update: Update, context: CallbackContext) -> None:
 
 if __name__ == "__main__":
     TOKEN = os.getenv("TELEGRAM_TOKEN")
-    
-    # ✅ 使用 Polling 模式，避免 webhook 問題
-    updater = Updater(token=TOKEN, use_context=True)
+    PORT = int(os.environ.get("PORT", 8443))
+    WEBHOOK_URL = f"https://{os.getenv('RENDER_EXTERNAL_HOSTNAME')}/{TOKEN}"
+
+    updater = Updater(TOKEN, use_context=True)
     dispatcher = updater.dispatcher
     dispatcher.add_handler(CommandHandler("backtest", backtest))
 
-    # 定期執行監控任務
     scheduler = BackgroundScheduler(timezone=pytz.utc)
     scheduler.add_job(monitor_job, 'interval', minutes=1)
     scheduler.start()
 
-    print("✅ Bot 已啟動，使用 Polling 模式...")
-    updater.start_polling()
+    updater.start_webhook(
+        listen="0.0.0.0",
+        port=PORT,
+        url_path=TOKEN,
+        webhook_url=WEBHOOK_URL
+    )
+
+    print("✅ Bot 已啟動，WebHook 模式監聽中...")
     updater.idle()
 
 

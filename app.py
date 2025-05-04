@@ -3,7 +3,7 @@ import os
 import joblib
 import pandas as pd
 from apscheduler.schedulers.background import BackgroundScheduler
-from telegram import Update, Bot
+from telegram import Update
 from telegram.ext import Updater, CommandHandler, CallbackContext
 from utils.binance_api import fetch_all_symbols_data
 from utils.feature_engineering import prepare_features, calculate_tp_sl_risk
@@ -21,58 +21,37 @@ def monitor_job():
         data = fetch_all_symbols_data()
         for symbol, features in data.items():
             X = prepare_features(features)
-            X_df = pd.DataFrame([X])  # 避免 sklearn warning，保留欄位名稱
-            proba = model.predict_proba(X_df)[0]
-            if len(proba) > 1:
-                prob = proba[1]
+            probs = model.predict_proba([X])
+            if probs.shape[1] > 1:
+                prob = probs[0][1]
                 if prob > 0.7:
                     tp, sl, rr = calculate_tp_sl_risk(features)
                     send_telegram_alert(symbol, prob, X, tp, sl, rr)
-            else:
-                print(f"{symbol} 模型僅有一個類別輸出，跳過")
     except Exception as e:
         print(f"❌ 錯誤: {e}")
 
-def backtest(update: Update, context: CallbackContext) -> None:
-    try:
-        df = pd.read_csv(DATA_PATH)
-        features = [
-            "oi_change_pct",
-            "basis_percent_negative",
-            "top_trader_account_ls_ratio",
-            "top_trader_position_ls_ratio"
-        ]
-        X = df[features]
-        y = (df["label"] != 0).astype(int)
-        y_pred = model.predict(X)
-        y_pred_signal = [1 if p != 0 else 0 for p in y_pred]
-        report = classification_report(y, y_pred_signal, digits=3)
-        context.bot.send_message(chat_id=update.effective_chat.id, text=f"📊 回測結果：\n{report}")
-    except Exception as e:
-        context.bot.send_message(chat_id=update.effective_chat.id, text=f"❌ 回測錯誤：{e}")
+def backtest(update: Update, context: CallbackContext):
+    update.message.reply_text("📊 回測功能待實作中，請稍後...")
 
 if __name__ == "__main__":
-    TOKEN = os.getenv("TELEGRAM_TOKEN")
-    PORT = int(os.environ.get("PORT", 8443))
-    WEBHOOK_URL = f"https://{os.getenv('RENDER_EXTERNAL_HOSTNAME')}/{TOKEN}"
+    TOKEN = os.getenv("TELEGRAM_TOKEN")  # Render 上請設定 TELEGRAM_TOKEN 環境變量
 
     updater = Updater(TOKEN, use_context=True)
     dispatcher = updater.dispatcher
+
+    # 加入 /backtest 指令
     dispatcher.add_handler(CommandHandler("backtest", backtest))
 
+    # 啟動監控排程
     scheduler = BackgroundScheduler(timezone=pytz.utc)
     scheduler.add_job(monitor_job, 'interval', minutes=1)
     scheduler.start()
 
-    updater.start_webhook(
-        listen="0.0.0.0",
-        port=PORT,
-        url_path=TOKEN,
-        webhook_url=WEBHOOK_URL
-    )
-
-    print("✅ Bot 已啟動，WebHook 模式監聽中...")
+    # ✅ 使用 polling 模式
+    updater.start_polling()
+    print("✅ Bot 已啟動，Polling 模式監聽中...")
     updater.idle()
+
 
 
 

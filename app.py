@@ -35,26 +35,38 @@ def backtest(update: Update, context: CallbackContext):
         update.message.reply_text("📊 正在執行回測，請稍候...")
 
         df = pd.read_csv(DATA_PATH)
-        df = df.dropna(subset=["oi_change_pct", "basis_percent_negative", 
-                               "top_trader_account_ls_ratio", "top_trader_position_ls_ratio", "label"])
-        X = df[["oi_change_pct", "basis_percent_negative", 
-                "top_trader_account_ls_ratio", "top_trader_position_ls_ratio"]]
+        df = df.dropna(subset=[
+            "oi_change_pct", 
+            "basis_percent_negative", 
+            "top_trader_account_ls_ratio", 
+            "top_trader_position_ls_ratio", 
+            "label"
+        ])
+        X = df[[
+            "oi_change_pct", 
+            "basis_percent_negative", 
+            "top_trader_account_ls_ratio", 
+            "top_trader_position_ls_ratio"
+        ]]
         y_true = df["label"]
         y_pred = model.predict(X)
 
-        report = classification_report(y_true, y_pred, digits=3, output_dict=False)
-        update.message.reply_text(f"📈 回測結果：\n<pre>{report}</pre>", parse_mode="HTML")
+        # 格式化報告文字
+        report = classification_report(y_true, y_pred, digits=3)
+        formatted = f"<pre>{report}</pre>"
+        update.message.reply_text(f"📈 回測結果：\n{formatted}", parse_mode="HTML")
+
     except Exception as e:
         update.message.reply_text(f"❌ 回測出錯: {e}")
 
 if __name__ == "__main__":
-   TOKEN = os.getenv("TELEGRAM_TOKEN")
-if not TOKEN:
-    raise ValueError("❌ TELEGRAM_TOKEN 環境變數未設置，請在 Render 中設定")
+    TOKEN = os.getenv("TELEGRAM_TOKEN")
+    if not TOKEN:
+        raise ValueError("❌ TELEGRAM_TOKEN 環境變數未設置，請在 Render 中設定")
 
-CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
-if not CHAT_ID:
-    raise ValueError("❌ TELEGRAM_CHAT_ID 環境變數未設置")
+    CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
+    if not CHAT_ID:
+        raise ValueError("❌ TELEGRAM_CHAT_ID 環境變數未設置")
 
     updater = Updater(TOKEN, use_context=True)
     dispatcher = updater.dispatcher
@@ -71,7 +83,6 @@ if not CHAT_ID:
     updater.start_polling()
     print("✅ Bot 已啟動，Polling 模式監聽中...")
     updater.idle()
-    send_telegram_alert("TESTUSDT", 0.88, [0.5, -0.8, 1.2, 0.9], 0.05, 0.03, 1.7)
 
 
 

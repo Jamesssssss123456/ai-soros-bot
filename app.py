@@ -31,7 +31,21 @@ def monitor_job():
         print(f"❌ 錯誤: {e}")
 
 def backtest(update: Update, context: CallbackContext):
-    update.message.reply_text("📊 回測功能待實作中，請稍後...")
+    try:
+        update.message.reply_text("📊 正在執行回測，請稍候...")
+
+        df = pd.read_csv(DATA_PATH)
+        df = df.dropna(subset=["oi_change_pct", "basis_percent_negative", 
+                               "top_trader_account_ls_ratio", "top_trader_position_ls_ratio", "label"])
+        X = df[["oi_change_pct", "basis_percent_negative", 
+                "top_trader_account_ls_ratio", "top_trader_position_ls_ratio"]]
+        y_true = df["label"]
+        y_pred = model.predict(X)
+
+        report = classification_report(y_true, y_pred, digits=3, output_dict=False)
+        update.message.reply_text(f"📈 回測結果：\n<pre>{report}</pre>", parse_mode="HTML")
+    except Exception as e:
+        update.message.reply_text(f"❌ 回測出錯: {e}")
 
 if __name__ == "__main__":
    TOKEN = os.getenv("TELEGRAM_TOKEN")

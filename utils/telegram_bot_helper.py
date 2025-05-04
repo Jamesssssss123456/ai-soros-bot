@@ -2,6 +2,10 @@
 import os
 from telegram import Bot
 
+# debug 輸出
+print("✅ TOKEN 是否讀到：", os.getenv("TELEGRAM_TOKEN"))
+print("✅ CHAT ID 是否讀到：", os.getenv("TELEGRAM_CHAT_ID"))
+
 bot = Bot(token=os.getenv("TELEGRAM_TOKEN"))
 
 def send_telegram_alert(symbol, prob, features, tp, sl, rr):

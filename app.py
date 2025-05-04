@@ -34,7 +34,13 @@ def backtest(update: Update, context: CallbackContext):
     update.message.reply_text("📊 回測功能待實作中，請稍後...")
 
 if __name__ == "__main__":
-    TOKEN = os.getenv("TELEGRAM_TOKEN")  # Render 上請設定 TELEGRAM_TOKEN 環境變量
+   TOKEN = os.getenv("TELEGRAM_TOKEN")
+if not TOKEN:
+    raise ValueError("❌ TELEGRAM_TOKEN 環境變數未設置，請在 Render 中設定")
+
+CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
+if not CHAT_ID:
+    raise ValueError("❌ TELEGRAM_CHAT_ID 環境變數未設置")
 
     updater = Updater(TOKEN, use_context=True)
     dispatcher = updater.dispatcher

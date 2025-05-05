@@ -14,8 +14,6 @@ import pytz
 # 模型與資料路徑
 MODEL_PATH = "model/ai_soros_model.pkl"
 DATA_PATH = "data/data_ALPACAUSDT.csv"
-
-# 載入模型
 model = joblib.load(MODEL_PATH)
 
 # ✅ 每分鐘監控任務
@@ -34,15 +32,15 @@ def monitor_job():
     except Exception as e:
         print(f"❌ 錯誤: {e}")
 
-# ✅ /backtest 回測指令
+# ✅ /backtest 指令
 def backtest(update: Update, context: CallbackContext):
     try:
         update.message.reply_text("📊 正在執行回測，請稍候...")
 
         df = pd.read_csv(DATA_PATH)
-        df = df.dropna(subset=["oi_change_pct", "basis_percent_negative", 
+        df = df.dropna(subset=["oi_change_pct", "basis_percent_negative",
                                "top_trader_account_ls_ratio", "top_trader_position_ls_ratio", "label"])
-        X = df[["oi_change_pct", "basis_percent_negative", 
+        X = df[["oi_change_pct", "basis_percent_negative",
                 "top_trader_account_ls_ratio", "top_trader_position_ls_ratio"]]
         y_true = df["label"]
         y_pred = model.predict(X)
@@ -52,29 +50,33 @@ def backtest(update: Update, context: CallbackContext):
     except Exception as e:
         update.message.reply_text(f"❌ 回測出錯: {e}")
 
+# ✅ 程式進入點
 if __name__ == "__main__":
     TOKEN = os.getenv("TELEGRAM_TOKEN")
     if not TOKEN:
-        raise ValueError("❌ TELEGRAM_TOKEN 環境變數未設置，請在 Render 中設定")
+        raise ValueError("❌ TELEGRAM_TOKEN 環境變數未設置")
 
     CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
     if not CHAT_ID:
         raise ValueError("❌ TELEGRAM_CHAT_ID 環境變數未設置")
 
+    HOSTNAME = os.getenv("RENDER_EXTERNAL_HOSTNAME")
+    if not HOSTNAME:
+        raise ValueError("❌ RENDER_EXTERNAL_HOSTNAME 環境變數未設置")
+
+    # ✅ Updater 初始化
     updater = Updater(TOKEN, use_context=True)
     dispatcher = updater.dispatcher
-
-    # 加入 /backtest 指令
     dispatcher.add_handler(CommandHandler("backtest", backtest))
 
-    # ✅ 啟動監控排程
+    # ✅ APScheduler 啟動排程
     scheduler = BackgroundScheduler(timezone=pytz.utc)
     scheduler.add_job(monitor_job, 'interval', minutes=1)
     scheduler.start()
 
-    # ✅ 使用 webhook 模式啟動 bot（Render 專用）
+    # ✅ 使用 Webhook 模式
     PORT = int(os.environ.get("PORT", 8443))
-    APP_URL = os.environ.get("RENDER_EXTERNAL_URL") + f"/{TOKEN}"
+    APP_URL = HOSTNAME.rstrip("/") + f"/{TOKEN}"
 
     updater.start_webhook(
         listen="0.0.0.0",
@@ -83,8 +85,9 @@ if __name__ == "__main__":
         webhook_url=APP_URL
     )
 
-    print("✅ Bot 正在透過 Webhook 運行中...")
+    print(f"✅ Bot 正在透過 Webhook 運行中... URL: {APP_URL}")
     updater.idle()
+
 
 
 

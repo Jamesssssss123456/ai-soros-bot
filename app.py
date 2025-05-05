@@ -16,6 +16,7 @@ DATA_PATH = "data/data_ALPACAUSDT.csv"
 
 model = joblib.load(MODEL_PATH)
 
+# ✅ 每分鐘監控任務
 def monitor_job():
     print("⏱️ 每分鐘監控中...")
     try:
@@ -25,12 +26,17 @@ def monitor_job():
             probs = model.predict_proba([X])
             if probs.shape[1] > 1:
                 prob = probs[0][1]
+                print(f"🔍 掃描中: {symbol}, 機率 = {prob:.4f}")
                 if prob > 0.7:
+                    print(f"📢 🚀 符合條件：{symbol}，觸發發送！")
                     tp, sl, rr = calculate_tp_sl_risk(features)
                     send_telegram_alert(symbol, prob, X, tp, sl, rr)
+                else:
+                    print(f"⛔ 機率過低跳過：{symbol}")
     except Exception as e:
         print(f"❌ 錯誤: {e}")
 
+# ✅ /backtest 回測功能
 def backtest(update: Update, context: CallbackContext):
     try:
         update.message.reply_text("📊 正在執行回測，請稍候...")
@@ -48,6 +54,7 @@ def backtest(update: Update, context: CallbackContext):
     except Exception as e:
         update.message.reply_text(f"❌ 回測出錯: {e}")
 
+# ✅ 主程式入口
 if __name__ == "__main__":
     TOKEN = os.getenv("TELEGRAM_TOKEN")
     if not TOKEN:
@@ -82,6 +89,7 @@ if __name__ == "__main__":
 
     print(f"✅ Bot 已啟動，Webhook URL：{WEBHOOK_URL}")
     updater.idle()
+
 
 
 

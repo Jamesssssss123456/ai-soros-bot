@@ -11,10 +11,14 @@ from utils.telegram_bot_helper import send_telegram_alert
 from sklearn.metrics import classification_report
 import pytz
 
+# 模型與資料路徑
 MODEL_PATH = "model/ai_soros_model.pkl"
 DATA_PATH = "data/data_ALPACAUSDT.csv"
+
+# 載入模型
 model = joblib.load(MODEL_PATH)
 
+# ✅ 每分鐘監控任務
 def monitor_job():
     print("⏱️ 每分鐘監控中...")
     try:
@@ -30,32 +34,21 @@ def monitor_job():
     except Exception as e:
         print(f"❌ 錯誤: {e}")
 
+# ✅ /backtest 回測指令
 def backtest(update: Update, context: CallbackContext):
     try:
         update.message.reply_text("📊 正在執行回測，請稍候...")
 
         df = pd.read_csv(DATA_PATH)
-        df = df.dropna(subset=[
-            "oi_change_pct", 
-            "basis_percent_negative", 
-            "top_trader_account_ls_ratio", 
-            "top_trader_position_ls_ratio", 
-            "label"
-        ])
-        X = df[[
-            "oi_change_pct", 
-            "basis_percent_negative", 
-            "top_trader_account_ls_ratio", 
-            "top_trader_position_ls_ratio"
-        ]]
+        df = df.dropna(subset=["oi_change_pct", "basis_percent_negative", 
+                               "top_trader_account_ls_ratio", "top_trader_position_ls_ratio", "label"])
+        X = df[["oi_change_pct", "basis_percent_negative", 
+                "top_trader_account_ls_ratio", "top_trader_position_ls_ratio"]]
         y_true = df["label"]
         y_pred = model.predict(X)
 
-        # 格式化報告文字
         report = classification_report(y_true, y_pred, digits=3)
-        formatted = f"<pre>{report}</pre>"
-        update.message.reply_text(f"📈 回測結果：\n{formatted}", parse_mode="HTML")
-
+        update.message.reply_text(f"📈 回測結果：\n<pre>{report}</pre>", parse_mode="HTML")
     except Exception as e:
         update.message.reply_text(f"❌ 回測出錯: {e}")
 
@@ -74,14 +67,23 @@ if __name__ == "__main__":
     # 加入 /backtest 指令
     dispatcher.add_handler(CommandHandler("backtest", backtest))
 
-    # 啟動監控排程
+    # ✅ 啟動監控排程
     scheduler = BackgroundScheduler(timezone=pytz.utc)
     scheduler.add_job(monitor_job, 'interval', minutes=1)
     scheduler.start()
 
-    # ✅ 使用 polling 模式
-    updater.start_polling()
-    print("✅ Bot 已啟動，Polling 模式監聽中...")
+    # ✅ 使用 webhook 模式啟動 bot（Render 專用）
+    PORT = int(os.environ.get("PORT", 8443))
+    APP_URL = os.environ.get("RENDER_EXTERNAL_URL") + f"/{TOKEN}"
+
+    updater.start_webhook(
+        listen="0.0.0.0",
+        port=PORT,
+        url_path=TOKEN,
+        webhook_url=APP_URL
+    )
+
+    print("✅ Bot 正在透過 Webhook 運行中...")
     updater.idle()
 
 

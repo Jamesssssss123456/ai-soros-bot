@@ -11,12 +11,11 @@ from utils.telegram_bot_helper import send_telegram_alert
 from sklearn.metrics import classification_report
 import pytz
 
-# 模型與資料路徑
 MODEL_PATH = "model/ai_soros_model.pkl"
 DATA_PATH = "data/data_ALPACAUSDT.csv"
+
 model = joblib.load(MODEL_PATH)
 
-# ✅ 每分鐘監控任務
 def monitor_job():
     print("⏱️ 每分鐘監控中...")
     try:
@@ -32,15 +31,14 @@ def monitor_job():
     except Exception as e:
         print(f"❌ 錯誤: {e}")
 
-# ✅ /backtest 指令
 def backtest(update: Update, context: CallbackContext):
     try:
         update.message.reply_text("📊 正在執行回測，請稍候...")
 
         df = pd.read_csv(DATA_PATH)
-        df = df.dropna(subset=["oi_change_pct", "basis_percent_negative",
+        df = df.dropna(subset=["oi_change_pct", "basis_percent_negative", 
                                "top_trader_account_ls_ratio", "top_trader_position_ls_ratio", "label"])
-        X = df[["oi_change_pct", "basis_percent_negative",
+        X = df[["oi_change_pct", "basis_percent_negative", 
                 "top_trader_account_ls_ratio", "top_trader_position_ls_ratio"]]
         y_true = df["label"]
         y_pred = model.predict(X)
@@ -50,42 +48,39 @@ def backtest(update: Update, context: CallbackContext):
     except Exception as e:
         update.message.reply_text(f"❌ 回測出錯: {e}")
 
-# ✅ 程式進入點
 if __name__ == "__main__":
     TOKEN = os.getenv("TELEGRAM_TOKEN")
     if not TOKEN:
-        raise ValueError("❌ TELEGRAM_TOKEN 環境變數未設置")
+        raise ValueError("❌ TELEGRAM_TOKEN 未設定")
 
     CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
     if not CHAT_ID:
-        raise ValueError("❌ TELEGRAM_CHAT_ID 環境變數未設置")
+        raise ValueError("❌ TELEGRAM_CHAT_ID 未設定")
 
-    HOSTNAME = os.getenv("RENDER_EXTERNAL_HOSTNAME")
-    if not HOSTNAME:
-        raise ValueError("❌ RENDER_EXTERNAL_HOSTNAME 環境變數未設置")
-
-    # ✅ Updater 初始化
     updater = Updater(TOKEN, use_context=True)
     dispatcher = updater.dispatcher
+
     dispatcher.add_handler(CommandHandler("backtest", backtest))
 
-    # ✅ APScheduler 啟動排程
     scheduler = BackgroundScheduler(timezone=pytz.utc)
     scheduler.add_job(monitor_job, 'interval', minutes=1)
     scheduler.start()
 
-    # ✅ 使用 Webhook 模式
     PORT = int(os.environ.get("PORT", 8443))
-    APP_URL = HOSTNAME.rstrip("/") + f"/{TOKEN}"
+    APP_URL = os.getenv("RENDER_EXTERNAL_HOSTNAME")
+    if not APP_URL.startswith("https://"):
+        APP_URL = "https://" + APP_URL
+
+    WEBHOOK_URL = f"{APP_URL}/{TOKEN}"
 
     updater.start_webhook(
         listen="0.0.0.0",
         port=PORT,
         url_path=TOKEN,
-        webhook_url=APP_URL
+        webhook_url=WEBHOOK_URL
     )
 
-    print(f"✅ Bot 正在透過 Webhook 運行中... URL: {APP_URL}")
+    print(f"✅ Bot 已啟動，Webhook URL：{WEBHOOK_URL}")
     updater.idle()
 
 
